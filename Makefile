@@ -20,7 +20,7 @@ example-hello: $(SOURCES) $(GOPATH)
 test-all: test
 
 test: $(GOPATH)
-	@go test $(GO_FLAGS) $(TEST_OPTS) $(IMPORT_PATH)/...
+	@go test $(GO_FLAGS) $(TEST_OPTS) $(IMPORT_PATH)
 
 fmt:
 	@gofmt -w $(NAME).go
