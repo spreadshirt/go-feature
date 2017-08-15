@@ -9,7 +9,7 @@ import (
 )
 
 var features struct {
-	Scream *feature.Flag
+	Scream feature.Flag
 }
 
 func main() {
