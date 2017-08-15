@@ -116,8 +116,6 @@ func (fs *FeatureSet) handleFeature(w http.ResponseWriter, req *http.Request, na
 	}
 }
 
-var defaultFeatureSet = NewFeatureSet()
-
 type Feature struct {
 	name string
 
@@ -131,7 +129,6 @@ func NewFeature(name string) *Feature {
 
 		enabled: false,
 	}
-	defaultFeatureSet.Add(f)
 	return f
 }
 
