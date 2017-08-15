@@ -1,7 +1,9 @@
 package feature
 
 import (
+	"math/rand"
 	"testing"
+	"time"
 )
 
 func TestBooleanFlag(t *testing.T) {
@@ -57,4 +59,26 @@ func TestSet(t *testing.T) {
 	if err == nil {
 		t.Fatal("should fail when NewFlag() is called with an existing name")
 	}
+}
+
+func BenchmarkBooleanFlag(b *testing.B) {
+	f := NewBooleanFlag("test")
+
+	go func() {
+		for {
+			n := rand.Intn(100)
+			time.Sleep(time.Duration(n) * time.Nanosecond)
+			f.Set(n < 50)
+		}
+	}()
+
+	b.RunParallel(func(pb *testing.PB) {
+		c := 0
+		for pb.Next() {
+			if f.IsEnabled() {
+				c += 1
+			}
+		}
+		b.Logf("IsEnabled() %d times", c)
+	})
 }

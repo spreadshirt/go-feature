@@ -22,6 +22,9 @@ test-all: test
 test: $(GOPATH)
 	@go test $(GO_FLAGS) $(TEST_OPTS) $(IMPORT_PATH)
 
+benchmark: $(GOPATH)
+	@go test $(GO_FLAGS) $(TEST_OPTS) -bench . $(IMPORT_PATH)
+
 fmt:
 	@gofmt -w $(NAME).go
 	@goimports -w $(NAME).go
