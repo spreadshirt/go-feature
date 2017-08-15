@@ -1,4 +1,4 @@
-package main
+package feature
 
 import (
 	"fmt"
@@ -9,33 +9,6 @@ import (
 	"strings"
 	"sync"
 )
-
-var features struct {
-	Scream *Feature
-}
-
-func main() {
-	features.Scream = NewFeature("scream")
-
-	http.HandleFunc("/hello", helloHandler)
-	http.Handle("/features/", defaultFeatureSet)
-
-	log.Fatal(http.ListenAndServe(":22022", nil))
-}
-
-func helloHandler(w http.ResponseWriter, req *http.Request) {
-	var msg string
-	if features.Scream.IsEnabled() {
-		msg = "HELLO!!!!"
-	} else {
-		msg = "hello."
-	}
-
-	fmt.Fprintf(w, msg)
-}
-
-func featureHandler(w http.ResponseWriter, req *http.Request) {
-}
 
 type FeatureSet struct {
 	mu       sync.Mutex
