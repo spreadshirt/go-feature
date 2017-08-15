@@ -8,7 +8,7 @@ SOURCES     := $(wildcard *.go examples/*.go)
 GOPATH      := $(shell pwd)/.go
 TEST_OPTS   :=
 
-all: $(NAME)
+all: example-hello
 
 $(GOPATH):
 	scripts/bootstrap
