@@ -13,7 +13,7 @@ var features struct {
 }
 
 func main() {
-	featureSet := feature.NewFeatureSet()
+	featureSet := feature.NewSet()
 	features.Scream, _ = featureSet.NewFeature("scream")
 
 	http.HandleFunc("/hello", helloHandler)

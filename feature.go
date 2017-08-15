@@ -1,3 +1,11 @@
+// Package feature provides a simple mechanism for creating and managing
+// feature flags.
+//
+// This allows code to be dynamically enabled and disabled in
+// production, without having to restart or redeploy services.
+//
+// All functions are concurrency-safe, i.e. can be used from multiple
+// goroutines concurrently.
 package feature
 
 import (
@@ -10,18 +18,21 @@ import (
 	"sync"
 )
 
-type FeatureSet struct {
+// Set collects a named set of features.
+type Set struct {
 	mu       sync.Mutex
 	features map[string]*Feature
 }
 
-func NewFeatureSet() *FeatureSet {
-	return &FeatureSet{
+// NewSet returns a new feature set.
+func NewSet() *Set {
+	return &Set{
 		features: make(map[string]*Feature),
 	}
 }
 
-func (fs *FeatureSet) Add(f *Feature) error {
+// Add adds a feature to the feature set.
+func (fs *Set) Add(f *Feature) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
@@ -33,7 +44,12 @@ func (fs *FeatureSet) Add(f *Feature) error {
 	return nil
 }
 
-func (fs *FeatureSet) NewFeature(name string) (*Feature, error) {
+// NewFeature creates a new feature with the given name and adds it to
+// the feature set.
+//
+// Returns an error (and does not add the feature) if a feature with
+// that name is already contained in the feature set.
+func (fs *Set) NewFeature(name string) (*Feature, error) {
 	f := &Feature{
 		name: name,
 
@@ -43,17 +59,23 @@ func (fs *FeatureSet) NewFeature(name string) (*Feature, error) {
 	return f, err
 }
 
-func (fs *FeatureSet) Get(name string) *Feature {
+// Get returns the feature with the given name from the feature set.
+//
+// Returns nil if no such feature exists.
+func (fs *Set) Get(name string) *Feature {
 	fs.mu.Lock()
 	f := fs.features[name]
 	fs.mu.Unlock()
 	return f
 }
 
-func (fs *FeatureSet) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+// ServeHTTP implements an admin interface for the feature flag.
+//
+// The root handler lists all features, and POST
+// /feature-name?enabled=true enables the given feature.
+func (fs *Set) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	lastSlash := strings.LastIndex(req.URL.Path, "/")
 
-	// index
 	if lastSlash == -1 || lastSlash == len(req.URL.Path)-1 {
 		fs.handleIndex(w, req)
 		return
@@ -69,7 +91,7 @@ func (f featuresByName) Len() int           { return len(f) }
 func (f featuresByName) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
 func (f featuresByName) Less(i, j int) bool { return f[i].Name() < f[j].Name() }
 
-func (fs *FeatureSet) handleIndex(w http.ResponseWriter, req *http.Request) {
+func (fs *Set) handleIndex(w http.ResponseWriter, req *http.Request) {
 	fs.mu.Lock()
 	features := make([]*Feature, 0, len(fs.features))
 	for _, f := range fs.features {
@@ -85,7 +107,7 @@ func (fs *FeatureSet) handleIndex(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (fs *FeatureSet) handleFeature(w http.ResponseWriter, req *http.Request, name string) {
+func (fs *Set) handleFeature(w http.ResponseWriter, req *http.Request, name string) {
 	feature := fs.Get(name)
 
 	if feature == nil {
@@ -116,6 +138,7 @@ func (fs *FeatureSet) handleFeature(w http.ResponseWriter, req *http.Request, na
 	}
 }
 
+// Feature is an enabled or disabled feature flag.
 type Feature struct {
 	name string
 
@@ -123,6 +146,7 @@ type Feature struct {
 	enabled bool
 }
 
+// NewFeature returns a new feature.
 func NewFeature(name string) *Feature {
 	f := &Feature{
 		name: name,
@@ -132,10 +156,12 @@ func NewFeature(name string) *Feature {
 	return f
 }
 
+// Name returns the name of the feature.
 func (f *Feature) Name() string {
 	return f.name
 }
 
+// IsEnabled returns true if the feature is enabled.
 func (f *Feature) IsEnabled() bool {
 	f.mu.Lock()
 	isEnabled := f.enabled
@@ -143,6 +169,7 @@ func (f *Feature) IsEnabled() bool {
 	return isEnabled
 }
 
+// Set enables or disables the feature.
 func (f *Feature) Set(enabled bool) {
 	f.mu.Lock()
 	f.enabled = enabled
