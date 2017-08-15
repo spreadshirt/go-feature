@@ -11,6 +11,7 @@ package feature
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"sort"
 	"strconv"
@@ -181,5 +182,58 @@ func (f *BooleanFlag) IsEnabled() bool {
 func (f *BooleanFlag) Set(enabled bool) {
 	f.mu.Lock()
 	f.enabled = enabled
+	f.mu.Unlock()
+}
+
+// RatioFlag is a feature flag that is only activated for the given ratio
+// of invocations.
+//
+// This allows enabling a feature for only a subset of invocations, for
+// example to test a new feature on a smaller scale.
+//
+// Be aware that you should seed the random number generator from
+// math/rand before using this.  This can be done by calling
+// `rand.Seed(...)`.
+type RatioFlag struct {
+	BooleanFlag
+
+	ratio float64
+}
+
+// NewRatioFlag returns a new flag that will only activate for the given
+// ratio of invocations.
+//
+// The given ratio must be in the interval [0.0, 1.0).
+//
+// Note that the flag must also be enabled (via Set()) separately.
+func NewRatioFlag(name string, ratio float64) *RatioFlag {
+	return &RatioFlag{
+		BooleanFlag: BooleanFlag{
+			name: name,
+
+			enabled: false,
+		},
+		ratio: ratio,
+	}
+}
+
+// IsEnabled returns true if the flag is enabled.
+//
+// Even when the flag is enabled, only `ratio` of invocations will
+// return true.  That is, the flag has to be enabled and only every nth
+// invocation (according to ratio) will return true.
+func (f *RatioFlag) IsEnabled() bool {
+	f.mu.RLock()
+	isEnabled := f.enabled
+	ratio := f.ratio
+	f.mu.RUnlock()
+
+	return isEnabled && rand.Float64() < ratio
+}
+
+// SetRatio sets the ratio with which the flag should be activated.
+func (f *RatioFlag) SetRatio(r float64) {
+	f.mu.Lock()
+	f.ratio = r
 	f.mu.Unlock()
 }

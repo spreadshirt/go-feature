@@ -30,6 +30,48 @@ func TestBooleanFlag(t *testing.T) {
 	}
 }
 
+func TestRatioFlag(t *testing.T) {
+	rand.Seed(time.Now().UnixNano())
+
+	f := NewRatioFlag("test", 1.0)
+	for i := 0; i < 100; i++ {
+		if f.IsEnabled() {
+			t.Fatal("should be initially disabled")
+		}
+	}
+
+	f.Set(true)
+	for i := 0; i < 100; i++ {
+		if !f.IsEnabled() {
+			t.Fatal("should always be enabled")
+		}
+	}
+
+	f = NewRatioFlag("test", 0.5)
+	f.Set(true)
+	c := 0
+	for i := 0; i < 100; i++ {
+		if f.IsEnabled() {
+			c += 1
+		}
+	}
+	if c < 40 || c > 60 {
+		t.Fatalf("should be enabled for about 50%% of invocations, but was for %d/100", c)
+	}
+
+	f = NewRatioFlag("test", 0.333)
+	f.Set(true)
+	c = 0
+	for i := 0; i < 100; i++ {
+		if f.IsEnabled() {
+			c += 1
+		}
+	}
+	if c < 20 || c > 50 {
+		t.Fatalf("should be enabled for about 33%% of invocations, but was for %d/100", c)
+	}
+}
+
 func TestSet(t *testing.T) {
 	s := NewSet()
 
