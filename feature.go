@@ -20,7 +20,7 @@ import (
 
 // Set collects a named set of feature flags.
 type Set struct {
-	mu    sync.Mutex
+	mu    sync.RWMutex
 	flags map[string]Flag
 }
 
@@ -59,9 +59,9 @@ func (fs *Set) NewFlag(name string) (*BooleanFlag, error) {
 //
 // Returns nil if no such flag exists.
 func (fs *Set) Get(name string) Flag {
-	fs.mu.Lock()
+	fs.mu.RLock()
 	f := fs.flags[name]
-	fs.mu.Unlock()
+	fs.mu.RUnlock()
 	return f
 }
 
@@ -88,12 +88,12 @@ func (f flagsByName) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
 func (f flagsByName) Less(i, j int) bool { return f[i].Name() < f[j].Name() }
 
 func (fs *Set) handleIndex(w http.ResponseWriter, req *http.Request) {
-	fs.mu.Lock()
+	fs.mu.RLock()
 	flags := make([]Flag, 0, len(fs.flags))
 	for _, f := range fs.flags {
 		flags = append(flags, f)
 	}
-	fs.mu.Unlock()
+	fs.mu.RUnlock()
 
 	sort.Sort(flagsByName(flags))
 
@@ -150,7 +150,7 @@ type Flag interface {
 type BooleanFlag struct {
 	name string
 
-	mu      sync.Mutex
+	mu      sync.RWMutex
 	enabled bool
 }
 
@@ -171,9 +171,9 @@ func (f *BooleanFlag) Name() string {
 
 // IsEnabled returns true if the flag is enabled.
 func (f *BooleanFlag) IsEnabled() bool {
-	f.mu.Lock()
+	f.mu.RLock()
 	isEnabled := f.enabled
-	f.mu.Unlock()
+	f.mu.RUnlock()
 	return isEnabled
 }
 
