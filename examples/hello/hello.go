@@ -9,12 +9,12 @@ import (
 )
 
 var features struct {
-	Scream *feature.Feature
+	Scream *feature.Flag
 }
 
 func main() {
 	featureSet := feature.NewSet()
-	features.Scream, _ = featureSet.NewFeature("scream")
+	features.Scream, _ = featureSet.NewFlag("scream")
 
 	http.HandleFunc("/hello", helloHandler)
 	http.Handle("/features/", featureSet)
