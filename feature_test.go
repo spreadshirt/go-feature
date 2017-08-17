@@ -1,7 +1,12 @@
 package feature
 
 import (
+	"fmt"
 	"math/rand"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 	"time"
 )
@@ -101,6 +106,64 @@ func TestSet(t *testing.T) {
 	if err == nil {
 		t.Fatal("should fail when NewFlag() is called with an existing name")
 	}
+}
+
+func TestHTTPBooleanFlag(t *testing.T) {
+	s := NewSet()
+	f := NewBooleanFlag("test")
+	err := s.Add(f)
+	if err != nil {
+		t.Fatal("should be able to add the flag")
+	}
+
+	tc := []struct {
+		req     *http.Request
+		code    int
+		body    string
+		enabled bool
+	}{
+		{httptest.NewRequest("GET", "/test", nil), 200, "test: false", false},
+		{httptest.NewRequest("POST", "/test", nil), 400, "", false},
+		{httptest.NewRequest("POST", "/test?enabled", nil), 400, "", false},
+		{httptest.NewRequest("POST", "/test?enabled=", nil), 400, "", false},
+		{httptest.NewRequest("POST", "/test?enabled=tru", nil), 400, "", false},
+		{httptest.NewRequest("POST", "/test?enabled=fal", nil), 400, "", false},
+		{httptest.NewRequest("POST", "/test?enabled=whatever", nil), 400, "", false},
+		{httptest.NewRequest("POST", "/test?enabled=true", nil), 200, "", true},
+		{httptest.NewRequest("GET", "/test", nil), 200, "test: true", true},
+		{httptest.NewRequest("POST", "/test?enabled=", nil), 400, "", true},
+		{httptest.NewRequest("POST", "/test?enabled=fal", nil), 400, "", true},
+		{httptest.NewRequest("POST", "/test?enabled=false", nil), 200, "", false},
+		{httptest.NewRequest("GET", "/test", nil), 200, "test: false", false},
+	}
+
+	for _, c := range tc {
+		t.Run(fmt.Sprintf("%s %s", c.req.Method, c.req.URL.Path), func(t *testing.T) {
+			rec := httptest.NewRecorder()
+
+			s.ServeHTTP(rec, c.req)
+			if rec.Code != c.code {
+				t.Fatalf("should respond with %d, but was %d", c.code, rec.Code)
+			}
+
+			if !strings.Contains(rec.Body.String(), c.body) {
+				t.Fatalf("should contain %q, but was %q", c.body, rec.Body.String())
+			}
+
+			if f.IsEnabled() != c.enabled {
+				t.Fatalf("should be %v but was %v", c.enabled, f.IsEnabled())
+			}
+		})
+	}
+}
+
+func postFormRequest(url string, vals url.Values) *http.Request {
+	req, err := http.NewRequest("POST", url, strings.NewReader(vals.Encode()))
+	if err != nil {
+		panic(fmt.Sprintf("http.NewRequest: %s", err))
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	return req
 }
 
 func BenchmarkBooleanFlag(b *testing.B) {
