@@ -4,7 +4,7 @@ NAME        := go-feature
 IMPORT_PATH := github.com/spreadshirt/$(NAME)
 VERSION     := $(shell git describe --tags --always|sed 's/^v//g')
 GO_FLAGS    :=
-SOURCES     := $(wildcard *.go examples/*.go)
+SOURCES     := $(wildcard *.go examples/*/*.go)
 GOPATH      := $(shell pwd)/.go
 TEST_OPTS   :=
 
