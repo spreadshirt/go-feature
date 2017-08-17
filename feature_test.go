@@ -124,3 +124,25 @@ func BenchmarkBooleanFlag(b *testing.B) {
 		b.Logf("IsEnabled() %d times", c)
 	})
 }
+
+func BenchmarkRatioFlag(b *testing.B) {
+	f := NewRatioFlag("test", 0.5)
+
+	go func() {
+		for {
+			n := rand.Intn(100)
+			time.Sleep(time.Duration(n) * time.Nanosecond)
+			f.Set(n < 50)
+		}
+	}()
+
+	b.RunParallel(func(pb *testing.PB) {
+		c := 0
+		for pb.Next() {
+			if f.IsEnabled() {
+				c += 1
+			}
+		}
+		b.Logf("IsEnabled() %d times", c)
+	})
+}
