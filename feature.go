@@ -116,10 +116,20 @@ func (fs *Set) handleFlag(w http.ResponseWriter, req *http.Request, name string)
 	case "GET":
 		fmt.Fprintf(w, "%s: %v", name, flag.IsEnabled())
 	case "POST":
-		enabledRaw := req.URL.Query().Get("enabled")
-		if strings.TrimSpace(enabledRaw) == "" {
-			http.Error(w, "missing 'enabled' parameter", http.StatusBadRequest)
+		err := req.ParseForm()
+		if err != nil {
+			http.Error(w, "invalid parameters", http.StatusBadRequest)
 			return
+		}
+
+		enabledRaw := req.Form.Get("enabled")
+		if strings.TrimSpace(enabledRaw) == "" {
+			if req.Header.Get("Content-Type") == "application/x-www-form-urlencoded" {
+				enabledRaw = "false"
+			} else {
+				http.Error(w, "missing 'enabled' parameter", http.StatusBadRequest)
+				return
+			}
 		}
 
 		enabled, err := strconv.ParseBool(enabledRaw)

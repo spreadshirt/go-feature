@@ -135,6 +135,16 @@ func TestHTTPBooleanFlag(t *testing.T) {
 		{httptest.NewRequest("POST", "/test?enabled=fal", nil), 400, "", true},
 		{httptest.NewRequest("POST", "/test?enabled=false", nil), 200, "", false},
 		{httptest.NewRequest("GET", "/test", nil), 200, "test: false", false},
+
+		{postFormRequest("/test", url.Values{"enabled": []string{"tru"}}), 400, "", false},
+		{postFormRequest("/test", url.Values{"enabled": []string{"true"}}), 200, "", true},
+		{httptest.NewRequest("GET", "/test", nil), 200, "test: true", true},
+		{postFormRequest("/test", url.Values{"enabled": []string{"false"}}), 200, "", false},
+		// set to true again for next test
+		{postFormRequest("/test", url.Values{"enabled": []string{"true"}}), 200, "", true},
+		// form post with no enabled field (as browsers submit) sets it to false
+		{postFormRequest("/test", url.Values{}), 200, "", false},
+		{httptest.NewRequest("GET", "/test", nil), 200, "test: false", false},
 	}
 
 	for _, c := range tc {
