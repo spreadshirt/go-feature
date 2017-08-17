@@ -1,6 +1,7 @@
 # go-feature
 
 [![Build Status](https://travis-ci.org/spreadshirt/go-feature.svg?branch=master)](https://travis-ci.org/spreadshirt/go-feature)
+[![GoDoc](https://godoc.org/github.com/spreadshirt/go-feature?status.svg)](https://godoc.org/github.com/spreadshirt/go-feature)
 
 > Package feature provides a simple mechanism for creating and managing feature flags.
 
