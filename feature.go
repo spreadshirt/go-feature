@@ -122,16 +122,17 @@ func (fs *Set) handleFlag(w http.ResponseWriter, req *http.Request, name string)
 			return
 		}
 
-		enabledRaw := req.Form.Get("enabled")
-		if strings.TrimSpace(enabledRaw) == "" {
+		if strings.TrimSpace(req.Form.Get("enabled")) == "" {
 			if req.Header.Get("Content-Type") == "application/x-www-form-urlencoded" {
-				enabledRaw = "false"
+				req.Form.Set("enabled", "false")
+				req.PostForm.Set("enabled", "false")
 			} else {
 				http.Error(w, "missing 'enabled' parameter", http.StatusBadRequest)
 				return
 			}
 		}
 
+		enabledRaw := req.Form.Get("enabled")
 		enabled, err := strconv.ParseBool(enabledRaw)
 		if err != nil {
 			log.Printf("Error: parsing bool param %q: %s\n", enabledRaw, err)
