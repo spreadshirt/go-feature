@@ -10,6 +10,7 @@ package feature
 
 import (
 	"fmt"
+	"html/template"
 	"log"
 	"math/rand"
 	"net/http"
@@ -99,13 +100,43 @@ func (fs *Set) handleIndex(w http.ResponseWriter, req *http.Request) {
 
 	sort.Sort(flagsByName(flags))
 
-	fmt.Fprintf(w, "Flags:\n\n")
-	for _, f := range flags {
-		switch f := f.(type) {
-		case fmt.Stringer:
-			fmt.Fprintf(w, "%s\n", f.String())
-		default:
-			fmt.Fprintf(w, "%s: %v\n", f.Name(), f.IsEnabled())
+	if strings.Contains(req.Header.Get("Accept"), "html") {
+		fmt.Fprintf(w, `<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>Flags</title>
+	</head>
+
+	<body>
+		<ul>
+`)
+		for _, f := range flags {
+			fmt.Fprintf(w, "<li>")
+
+			switch f := f.(type) {
+			case RenderableFlag:
+				f.RenderHTML(w)
+			default:
+				fmt.Fprintf(w, "<pre>%s: %v</pre>\n", f.Name(), f.IsEnabled())
+			}
+
+			fmt.Fprintf(w, "\n</li>\n\n")
+		}
+
+		fmt.Fprintf(w, `
+		</ul>
+	</body>
+</html>`)
+	} else {
+		fmt.Fprintf(w, "Flags:\n\n")
+		for _, f := range flags {
+			switch f := f.(type) {
+			case fmt.Stringer:
+				fmt.Fprintf(w, "%s\n", f.String())
+			default:
+				fmt.Fprintf(w, "%s: %v\n", f.Name(), f.IsEnabled())
+			}
 		}
 	}
 }
@@ -157,6 +188,12 @@ func (fs *Set) handleFlag(w http.ResponseWriter, req *http.Request, name string)
 			}
 
 			flag.Set(enabled)
+		}
+
+		referer := req.Header.Get("Referer")
+		if referer != "" {
+			w.Header().Set("Location", referer)
+			w.WriteHeader(http.StatusTemporaryRedirect)
 		}
 
 		switch flag := flag.(type) {
@@ -238,6 +275,28 @@ func (f *BooleanFlag) SetFrom(vals url.Values) error {
 	f.Set(enabled)
 	return nil
 }
+
+func (f *BooleanFlag) RenderHTML(w http.ResponseWriter) {
+	f.mu.RLock()
+	enabled := f.enabled
+	f.mu.RUnlock()
+
+	err := booleanTmpl.Execute(w, map[string]interface{}{
+		"name":    f.Name(),
+		"enabled": enabled,
+	})
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+var booleanTmpl = template.Must(template.New("").Parse(`
+<form id="feature-{{ .name }}" class="feature" method="POST" action="./{{ .name }}" autocomplete="off">
+	{{ .name }}
+	<input name="enabled" type="checkbox" value="true" {{ if .enabled }}checked{{ end }} />
+
+	<input type="submit" value="Apply!" />
+</form>`))
 
 // RatioFlag is a feature flag that is only activated for the given ratio
 // of invocations.
@@ -323,3 +382,34 @@ func (f *RatioFlag) SetFrom(vals url.Values) error {
 
 	return nil
 }
+
+type RenderableFlag interface {
+	RenderHTML(w http.ResponseWriter)
+}
+
+func (f *RatioFlag) RenderHTML(w http.ResponseWriter) {
+	f.mu.RLock()
+	enabled := f.enabled
+	ratio := f.ratio
+	f.mu.RUnlock()
+
+	err := ratioTmpl.Execute(w, map[string]interface{}{
+		"name":         f.Name(),
+		"enabled":      enabled,
+		"ratio":        ratio,
+		"ratioPercent": fmt.Sprintf("%.0f%%", ratio*100),
+	})
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+var ratioTmpl = template.Must(template.New("").Parse(`
+<form id="feature-{{ .name }}" class="feature" method="POST" action="./{{ .name }}" autocomplete="off" oninput="ratio_value.value = Math.round(parseFloat(ratio.value)*100) + '%'">
+	{{ .name }}
+	<input name="enabled" type="checkbox" value="true"{{ if .enabled }} checked{{ end }} />
+	<input name="ratio" type="range" min="0.0" max="1.0" step="0.01" value="{{ .ratio }}" />
+	<output name="ratio_value">{{ .ratioPercent }}</output>
+
+	<input type="submit" value="Apply!" />
+</form>`))
