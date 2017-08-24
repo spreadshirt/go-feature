@@ -101,7 +101,12 @@ func (fs *Set) handleIndex(w http.ResponseWriter, req *http.Request) {
 
 	fmt.Fprintf(w, "Flags:\n\n")
 	for _, f := range flags {
-		fmt.Fprintf(w, "%s: %v\n", f.Name(), f.IsEnabled())
+		switch f := f.(type) {
+		case fmt.Stringer:
+			fmt.Fprintf(w, "%s\n", f.String())
+		default:
+			fmt.Fprintf(w, "%s: %v\n", f.Name(), f.IsEnabled())
+		}
 	}
 }
 
