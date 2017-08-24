@@ -13,6 +13,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -126,21 +127,27 @@ func (fs *Set) handleFlag(w http.ResponseWriter, req *http.Request, name string)
 			if req.Header.Get("Content-Type") == "application/x-www-form-urlencoded" {
 				req.Form.Set("enabled", "false")
 				req.PostForm.Set("enabled", "false")
-			} else {
-				http.Error(w, "missing 'enabled' parameter", http.StatusBadRequest)
-				return
 			}
 		}
 
-		enabledRaw := req.Form.Get("enabled")
-		enabled, err := strconv.ParseBool(enabledRaw)
-		if err != nil {
-			log.Printf("Error: parsing bool param %q: %s\n", enabledRaw, err)
-			http.Error(w, "invalid parameter", http.StatusBadRequest)
-			return
-		}
+		switch flag := flag.(type) {
+		case SettableFlag:
+			err := flag.SetFrom(req.Form)
+			if err != nil {
+				log.Printf("Error: parsing parameters: %s\n", err)
+				http.Error(w, "invalid parameters", http.StatusBadRequest)
+			}
+		default:
+			enabledRaw := req.Form.Get("enabled")
+			enabled, err := strconv.ParseBool(enabledRaw)
+			if err != nil {
+				log.Printf("Error: parsing bool param %q: %s\n", enabledRaw, err)
+				http.Error(w, "invalid parameter", http.StatusBadRequest)
+				return
+			}
 
-		flag.Set(enabled)
+			flag.Set(enabled)
+		}
 	default:
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 	}
@@ -194,6 +201,25 @@ func (f *BooleanFlag) Set(enabled bool) {
 	f.mu.Lock()
 	f.enabled = enabled
 	f.mu.Unlock()
+}
+
+type SettableFlag interface {
+	SetFrom(url.Values) error
+}
+
+func (f *BooleanFlag) SetFrom(vals url.Values) error {
+	enabledRaw := vals.Get("enabled")
+	if strings.TrimSpace(enabledRaw) == "" {
+		return fmt.Errorf("missing 'enabled' parameter")
+	}
+
+	enabled, err := strconv.ParseBool(enabledRaw)
+	if err != nil {
+		return fmt.Errorf("invalid parameter")
+	}
+
+	f.Set(enabled)
+	return nil
 }
 
 // RatioFlag is a feature flag that is only activated for the given ratio
