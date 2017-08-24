@@ -167,6 +167,64 @@ func TestHTTPBooleanFlag(t *testing.T) {
 	}
 }
 
+func TestHTTPRatioFlag(t *testing.T) {
+	s := NewSet()
+	f := NewRatioFlag("test", 0.1)
+	err := s.Add(f)
+	if err != nil {
+		t.Fatal("should be able to add the flag")
+	}
+
+	tc := []struct {
+		req     *http.Request
+		code    int
+		body    string
+		enabled bool
+		ratio   float64
+	}{
+		{httptest.NewRequest("GET", "/test", nil), 200, "test: false (ratio=0.1", false, 0},
+		{httptest.NewRequest("POST", "/test?ratio=0.2oops", nil), 400, "invalid", false, 0},
+		{httptest.NewRequest("POST", "/test?ratio=0.2", nil), 200, "test: false (ratio=0.2", false, 0},
+		{httptest.NewRequest("POST", "/test?enabled=tru", nil), 400, "", false, 0},
+		{httptest.NewRequest("POST", "/test?enabled=true", nil), 200, "test: true (ratio=0.2", true, 0.2},
+		{postFormRequest("/test", url.Values{"ratio": []string{"0.5"}}), 200, "test: false (ratio=0.5", false, 0},
+		{postFormRequest("/test", url.Values{"enabled": []string{"true"}}), 200, "test: true (ratio=0.5", true, 0.5},
+		{postFormRequest("/test", url.Values{"enabled": []string{"true"}, "ratio": []string{"0.75"}}), 200, "test: true (ratio=0.75", true, 0.75},
+		{httptest.NewRequest("POST", "/test?enabled=fal", nil), 400, "", true, 0.75},
+	}
+
+	for _, c := range tc {
+		t.Run(fmt.Sprintf("%s %s", c.req.Method, c.req.URL.Path), func(t *testing.T) {
+			rec := httptest.NewRecorder()
+
+			s.ServeHTTP(rec, c.req)
+			if rec.Code != c.code {
+				t.Fatalf("should respond with %d, but was %d: %s", c.code, rec.Code, rec.Body.String())
+			}
+
+			if !strings.Contains(rec.Body.String(), c.body) {
+				t.Fatalf("should contain %q, but was %q", c.body, rec.Body.String())
+			}
+
+			cc := 0
+			for i := 0; i < 100; i++ {
+				if f.IsEnabled() {
+					if c.enabled {
+						cc += 1
+					} else {
+						t.Fatal("should be false")
+					}
+				}
+			}
+			n := int(c.ratio * 100)
+			if cc < n-10 || cc > n+10 {
+				t.Fatalf("should be %v for about %d%% of invocations, but was for %d/100", c.enabled, n, cc)
+			}
+
+		})
+	}
+}
+
 func postFormRequest(url string, vals url.Values) *http.Request {
 	req, err := http.NewRequest("POST", url, strings.NewReader(vals.Encode()))
 	if err != nil {

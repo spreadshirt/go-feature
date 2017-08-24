@@ -115,7 +115,12 @@ func (fs *Set) handleFlag(w http.ResponseWriter, req *http.Request, name string)
 
 	switch req.Method {
 	case "GET":
-		fmt.Fprintf(w, "%s: %v", name, flag.IsEnabled())
+		switch flag := flag.(type) {
+		case fmt.Stringer:
+			fmt.Fprintf(w, "%s", flag.String())
+		default:
+			fmt.Fprintf(w, "%s: %v", name, flag.IsEnabled())
+		}
 	case "POST":
 		err := req.ParseForm()
 		if err != nil {
@@ -147,6 +152,13 @@ func (fs *Set) handleFlag(w http.ResponseWriter, req *http.Request, name string)
 			}
 
 			flag.Set(enabled)
+		}
+
+		switch flag := flag.(type) {
+		case fmt.Stringer:
+			fmt.Fprintf(w, "%s", flag.String())
+		default:
+			fmt.Fprintf(w, "%s: %v", name, flag.IsEnabled())
 		}
 	default:
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
@@ -273,4 +285,36 @@ func (f *RatioFlag) SetRatio(r float64) {
 	f.mu.Lock()
 	f.ratio = r
 	f.mu.Unlock()
+}
+
+func (f *RatioFlag) String() string {
+	f.mu.RLock()
+	enabled := f.enabled
+	ratio := f.ratio
+	f.mu.RUnlock()
+	return fmt.Sprintf("%s: %v (ratio=%.2f)", f.name, enabled, ratio)
+}
+
+func (f *RatioFlag) SetFrom(vals url.Values) error {
+	enabledRaw := vals.Get("enabled")
+	if strings.TrimSpace(enabledRaw) != "" {
+		enabled, err := strconv.ParseBool(enabledRaw)
+		if err != nil {
+			return fmt.Errorf("invalid parameter %q", enabledRaw)
+		}
+
+		f.Set(enabled)
+	}
+
+	ratioRaw := vals.Get("ratio")
+	if strings.TrimSpace(ratioRaw) != "" {
+		ratio, err := strconv.ParseFloat(ratioRaw, 64)
+		if err != nil {
+			return fmt.Errorf("invalid parameter %q", ratioRaw)
+		}
+
+		f.SetRatio(ratio)
+	}
+
+	return nil
 }
